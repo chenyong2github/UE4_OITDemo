@@ -1,1 +1,11 @@
-return 1;
+// Alpha Blend
+half3 Color = lerp(pow(Above, 0.45), Below, 1 - Alpha);
+
+// Above Only
+half3 AboveOnly = step(0.001, Above) * Color;
+
+// Above Clipped
+half3 AboveClipped = step(0.999, 1 - Above) * Below;
+
+// Add
+return AboveOnly + AboveClipped;

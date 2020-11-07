@@ -30,7 +30,7 @@ void ADepthPeeling::BeginPlay()
 
 	UWorld* World = GetWorld();
 
-	if (!OITActor)
+	if (OITActors.Num() <= 0)
 	{
 		return;
 	}
@@ -58,34 +58,40 @@ void ADepthPeeling::BeginPlay()
 	SceneCaptureComponent2D->bCaptureEveryFrame = false;
 
 	// Load OITActor's material and create mid
-	M_Actor_ColorDepth = LoadObject<UMaterial>(GetTransientPackage(), TEXT("/Game/M_Actor_ColorDepth.M_Actor_ColorDepth"));
-	if (M_Actor_ColorDepth)
+	//M_Actor_ColorDepth = LoadObject<UMaterial>(GetTransientPackage(), TEXT("/Game/M_UE4Man_ColorDepth.M_UE4Man_ColorDepth"));
+	//if (M_Actor_ColorDepth)
+	//{
+	//	MID_Actor_ColorDepth = UMaterialInstanceDynamic::Create(M_Actor_ColorDepth, this, FName("MID_Actor_ColorDepth"));
+	//}
+
+	// Set OITActor render only in SceneCaptureComponent2D 
+	for (AActor* OITActor : OITActors)
 	{
-		MID_Actor_ColorDepth = UMaterialInstanceDynamic::Create(M_Actor_ColorDepth, this, FName("MID_Actor_ColorDepth"));
-	}
+		OITActor->SetOwner(PlayerCameraManager->GetViewTarget());
 
-	OITActor->SetOwner(PlayerCameraManager->GetViewTarget());
-
-	TArray<UMeshComponent*> MeshComponents;
-	OITActor->GetComponents<UMeshComponent>(MeshComponents, true);
-	for (UMeshComponent* MeshComponent : MeshComponents)
-	{
-		MeshComponent->bOwnerNoSee = true;
-
-		const TArray<UMaterialInterface*> MaterialInterfaces = MeshComponent->GetMaterials();
-		for (int32 i = 0; i < MaterialInterfaces.Num(); ++i)
+		TArray<UMeshComponent*> MeshComponents;
+		OITActor->GetComponents<UMeshComponent>(MeshComponents, true);
+		for (UMeshComponent* MeshComponent : MeshComponents)
 		{
-			// Replace the translucent section
-			UMaterialInterface* MaterialInterface = MaterialInterfaces[i];
-			if (MaterialInterface->GetBlendMode() == EBlendMode::BLEND_Translucent)
-			{
-				MeshComponent->SetMaterial(i, MID_Actor_ColorDepth);
-			}
-		}
-	}
+			MeshComponent->bOwnerNoSee = true;
 
-	// Add OITActor to SceneCaptureComponent2D
-	SceneCaptureComponent2D->ShowOnlyActors.Add(OITActor);
+			/*
+			const TArray<UMaterialInterface*> MaterialInterfaces = MeshComponent->GetMaterials();
+			for (int32 i = 0; i < MaterialInterfaces.Num(); ++i)
+			{
+				// Replace the translucent section
+				UMaterialInterface* MaterialInterface = MaterialInterfaces[i];
+				if (MaterialInterface->GetBlendMode() == EBlendMode::BLEND_Translucent)
+				{
+					MeshComponent->SetMaterial(i, MID_Actor_ColorDepth);
+				}
+			}
+			*/
+		}
+
+		// Add OITActor to SceneCaptureComponent2D
+		SceneCaptureComponent2D->ShowOnlyActors.Add(OITActor);
+	}
 
 	// Load post process compose material and set to PostProcessVolume
 	M_PP_Compose = LoadObject<UMaterial>(GetTransientPackage(), TEXT("/Game/M_PP_Compose.M_PP_Compose"));
@@ -110,7 +116,7 @@ void ADepthPeeling::Tick(float DeltaTime)
 
 	UWorld* World = GetWorld();
 
-	if (!OITActor)
+	if (OITActors.Num() <= 0)
 	{
 		return;
 	}
@@ -168,7 +174,26 @@ void ADepthPeeling::Tick(float DeltaTime)
 		// Set last RT_Color and RT_Depth to MID_Mask_Actor except for the first time
 		if (Index >= 1)
 		{
-			MID_Actor_ColorDepth->SetTextureParameterValue(TEXT("RT_Depth"), RT_ColorDepths[Index - 1]);
+			for (AActor* OITActor : OITActors)
+			{
+				TArray<UMeshComponent*> MeshComponents;
+				OITActor->GetComponents<UMeshComponent>(MeshComponents, true);
+				for (UMeshComponent* MeshComponent : MeshComponents)
+				{
+					const TArray<UMaterialInterface*> MaterialInterfaces = MeshComponent->GetMaterials();
+					for (int32 i = 0; i < MaterialInterfaces.Num(); ++i)
+					{
+						UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(MaterialInterfaces[i]);
+						if (!MID)
+						{
+							MID = UMaterialInstanceDynamic::Create(MaterialInterfaces[i], this);
+							MeshComponent->SetMaterial(i, MID);
+						}
+
+						MID->SetTextureParameterValue(TEXT("RT_Depth"), RT_ColorDepths[Index - 1]);
+					}
+				}
+			}			
 		}
 
 		// Capture color and copy to RT_Color
@@ -195,9 +220,25 @@ void ADepthPeeling::Tick(float DeltaTime)
 
 	// Reset MID_Actor_Color's T_ColorDepth to default black
 	UTexture* RT_Black = nullptr;
-	UMaterial* BaseMaterial = MID_Actor_ColorDepth->GetBaseMaterial();
-	BaseMaterial->GetTextureParameterValue(TEXT("RT_Depth"), RT_Black);
-	MID_Actor_ColorDepth->SetTextureParameterValue(TEXT("RT_Depth"), RT_Black);
+	for (AActor* OITActor : OITActors)
+	{
+		TArray<UMeshComponent*> MeshComponents;
+		OITActor->GetComponents<UMeshComponent>(MeshComponents, true);
+		for (UMeshComponent* MeshComponent : MeshComponents)
+		{
+			const TArray<UMaterialInterface*> MaterialInterfaces = MeshComponent->GetMaterials();
+			for (int32 i = 0; i < MaterialInterfaces.Num(); ++i)
+			{
+				UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(MaterialInterfaces[i]);
+				if (MID)
+				{
+					UMaterial* BaseMaterial = MID->GetBaseMaterial();
+					BaseMaterial->GetTextureParameterValue(TEXT("RT_Depth"), RT_Black);
+					MID->SetTextureParameterValue(TEXT("RT_Depth"), RT_Black);
+				}
+			}
+		}
+	}	
 
 	// Set all RT_Color to MID_PP_Compose for composing
 	for (int32 Index = 0; Index < RT_ColorDepths.Num(); Index++)

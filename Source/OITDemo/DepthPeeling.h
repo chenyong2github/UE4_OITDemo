@@ -30,7 +30,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	AActor* OITActor;
+	TArray<AActor*> OITActors;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	UMaterial* M_Actor_ColorDepth;
