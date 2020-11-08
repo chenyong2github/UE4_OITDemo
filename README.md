@@ -3,5 +3,5 @@ Order Independent Translucent Rendering Using Depth Peeling Method In UE4
 
 Screenshots:
 
-![](https://raw.githubusercontent.com/chenyong2github/ExtendStandard/master/Screenshots/12.jpg)
-![](https://raw.githubusercontent.com/chenyong2github/ExtendStandard/master/Screenshots/14.jpg)
+![](https://raw.githubusercontent.com/chenyong2github/UE4_OITDemo/master/Screenshots/s1.jpg)
+![](https://raw.githubusercontent.com/chenyong2github/UE4_OITDemo/master/Screenshots/s2.jpg)
